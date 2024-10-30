@@ -56,7 +56,7 @@ query_id=
 **wallet.txt**:
 
 ```plaintext
-0x1234567890abcdef...
+UQC20...
 ```
 
 (One wallet address per line)
