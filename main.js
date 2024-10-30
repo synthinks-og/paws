@@ -265,16 +265,18 @@ class QuestManager {
       } = response;
 
       if ((status === 200 || status === 201) && success) {
-        return { success: true, data };
+        logger.info(`Quest ${questId} completed successfully`);
+        return { success: true, needsClaim: true };
       }
 
       if ((status === 200 || status === 201) && data === true) {
-        logger.info(`Quest ${questId} not completed, proceeding to claim...`);
+        logger.info(`Quest ${questId} already completed, ready to claim`);
         return { success: true, needsClaim: true };
       }
 
       if (data === false) {
-        logger.warn(`Requirements not met to complete quest ${questId}`);
+        logger.warn(`Requirements not met for quest ${questId}`);
+        return { success: false, error: "Requirements not met" };
       }
 
       return { success: false, error: "Failed to complete quest" };
@@ -292,53 +294,75 @@ class QuestManager {
         data: { questId },
       });
 
-      if (response) {
+      if (response?.data?.success) {
         const reward = questData.rewards[0].amount;
         logger.info(
-          `Successfully completed ${questData.title} | Reward: ${reward}`
+          `Successfully claimed quest ${questData.title} | Reward: ${reward}`
         );
         return { success: true };
       }
-      return { success: false, error: "Failed to claim quest reward" };
+
+      const errorMessage =
+        response?.data?.message || "Failed to claim quest reward";
+      logger.error(`Claim failed: ${errorMessage}`);
+      return { success: false, error: errorMessage };
     } catch (error) {
+      logger.error(`Error claiming quest: ${error.message}`);
       return { success: false, error: error.message };
+    }
+  }
+
+  async processQuest(token, quest) {
+    try {
+      logger.info(`Starting quest: ${quest.title} (${quest._id})`);
+
+      const completeResult = await this.completeQuest(token, quest._id);
+
+      if (
+        !completeResult.success &&
+        completeResult.error !== "Requirements not met"
+      ) {
+        logger.error(
+          `Failed to complete quest ${quest.title}: ${completeResult.error}`
+        );
+        return;
+      }
+
+      if (completeResult.needsClaim) {
+        logger.info(`Attempting to claim quest: ${quest.title}`);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        const claimResult = await this.claimQuest(token, quest._id, quest);
+        if (!claimResult.success) {
+          logger.error(
+            `Failed to claim quest ${quest.title}: ${claimResult.error}`
+          );
+        }
+      }
+    } catch (error) {
+      logger.error(`Error processing quest ${quest.title}: ${error.message}`);
     }
   }
 
   async processQuests(token) {
     try {
+      logger.info("Fetching available quests...");
       const questsResult = await this.getQuestsList(token);
+
       if (!questsResult.success) {
-        logger.error(`Error getting quests list: ${questsResult.error}`);
+        logger.error(`Failed to get quests list: ${questsResult.error}`);
         return;
       }
 
-      for (const quest of questsResult.data) {
-        logger.info(`Processing quest: ${quest.title}`);
+      const unclaimedQuests = questsResult.data;
+      logger.info(`Found ${unclaimedQuests.length} unclaimed quests`);
+
+      for (const quest of unclaimedQuests) {
         await this.processQuest(token, quest);
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     } catch (error) {
       logger.error(`Error processing quests: ${error.message}`);
-    }
-  }
-
-  async processQuest(token, quest) {
-    const completeResult = await this.completeQuest(token, quest._id);
-    if (!completeResult.success) {
-      logger.error(
-        `Error completing quest ${quest.title}: ${completeResult.error}`
-      );
-      return;
-    }
-
-    if (completeResult.needsClaim) {
-      const claimResult = await this.claimQuest(token, quest._id, quest);
-      if (!claimResult.success) {
-        logger.error(
-          `Error claiming quest reward ${quest.title}: ${claimResult.error}`
-        );
-      }
     }
   }
 }
