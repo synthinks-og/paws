@@ -37,7 +37,7 @@ npm install
 
 1. Register your PAWS account by clicking [here](https://t.me/PAWSOG_bot/PAWS?startapp=vuY5ILO1)
 
-2. Create necessary files in the project directory:
+2. Edit necessary files in the project directory:
 
    - `data.txt`: Store your PAWS initialization data
    - `wallet.txt`: Store your wallet addresses
