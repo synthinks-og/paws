@@ -47,7 +47,7 @@ npm install
 **data.txt**:
 
 ```plaintext
-user=
+query_id=
 query_id=
 ```
 
